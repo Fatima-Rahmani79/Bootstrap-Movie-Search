@@ -1,15 +1,97 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useEffect, useState } from 'react'
+
 import './styles.css'
+import { Film, Signal } from 'lucide-react';
+import SearchBar from './components/SearchBar';
+import MovieList from './components/MovieList';
+
 const API_KEY = "3fe4cc7f";
 function App() {
-  const [count, setCount] = useState(0)
+  const [searchTerm, setSearchTerm] = useState("Batman");
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [movies, setMovies] = useState([]);
+
+  const trimmed = searchTerm.trim();
+
+  useEffect(()=>{
+
+    if(!trimmed){
+      setMovies([]);
+      setError("");
+      setLoading(false);
+      return;
+    }
+
+    if (!API_KEY) {
+      setMovies([]);
+      setError("Missing OMDb API key!");
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function fetchMovies() {
+      try{
+        setLoading(true);
+        setError("");
+        const res = await fetch(`http://www.omdbapi.com/?apikey=${API_KEY}&s=${encodeURIComponent(trimmed)}`,{signal: controller.signal
+        });
+        const data = await res.json();
+        if (data.Response === "False"){
+          setMovies([]);
+          setError(data.Error || "No results...")
+        }
+
+        setMovies(data.Search || []);
+
+      } catch(error) {
+        if (error.name !== "AbortError")
+        setError("Failed to fetch movie")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMovies();
+    return ()=> controller.abort();
+  },[trimmed])
 
   return (
-    <>
-      
-    </>
+    <div className="py-4 py-sm-5">
+      <div className="container">
+        <div className="glass rounded-4 p-3 p-sm-4 mb-4">
+          <div className="d-flex align-items-center gap-3 mb-3">
+            <div className="brand-badge glass">
+              <Film size={22} />
+            </div>
+            <div>
+              <h1 className="h3 mb-0">Movie Search</h1>
+              <div className="muted small">OMDb search with Bootstrap UI</div>
+            </div>
+          </div>
+
+          <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm}></SearchBar>
+        </div>
+
+        {error ? (
+          <div className="alert alert-danger glass-border-0" role='alert'>
+            <strong>Oops:</strong> {error}
+          </div>
+        ) : null}
+
+        {!error && !loading && trimmed && movies.length === 0 ? (
+          <div className="glass rounded-4 p-4 mb-3">
+            <div className="h5 mb-1">No results</div>
+            <div className="muted">
+              Try searching something else (e.g., Inception, Dune, Spider-Man).
+            </div>
+          </div>
+        ) : null}
+
+        <MovieList movies={movies} loading={loading} />
+      </div>
+    </div>
   )
 }
 
